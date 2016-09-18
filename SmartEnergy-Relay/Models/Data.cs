@@ -14,7 +14,9 @@ namespace SmartEnergy_Server.Models
 
         public DateTime Time { get; set; }
 
-        public int Power { get; set; }
+        public string Label { get; set; }
+
+        public decimal Value { get; set; }
 
         [JsonIgnore]
         public virtual Device Device { get; set; }

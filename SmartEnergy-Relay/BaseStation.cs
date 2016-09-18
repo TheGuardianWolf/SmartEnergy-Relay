@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SmartEnergy_Server.Models;
+using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 
@@ -6,9 +7,13 @@ namespace SmartEnergy_Relay
 {
     class BaseStation
     {
-        private SerialPort devicePort;
+        private DevicePort devicePort = new DevicePort();
 
-        public Display display = new Display();
+        private Device device;
+        public Device Device { get; set; }
+
+        private Display display = new Display();
+        public Display Display { get; set; }
 
         private List<byte> byteStorage = new List<byte>();
 
@@ -19,11 +24,11 @@ namespace SmartEnergy_Relay
                 return new List<string>();
             }
 
-            List<string> l = new List<string>();
+            List<string> decodedStrings = new List<string>();
 
-            string s = "";
+            string decodedString = "";
 
-            byte[] temp = new byte[6]{ 0, 0, 0, 0, 0, 0};
+            byte[] temp = new byte[6] { 0, 0, 0, 0, 0, 0 };
 
             int i = 0;
 
@@ -32,40 +37,32 @@ namespace SmartEnergy_Relay
                 temp[i] = byteStorage[i];
             }
 
-            if ( (i == 6) && (temp[0] == Display.SyncPacket))
+            if ((i == 6) && (temp[0] == Display.SyncPacket))
             {
                 if (temp[5] == Display.TermPacket)
                 {
                     for (i = 1; i < 5; i++)
                     {
-                        s = Display.DecodeChar(temp[i]) + s;
+                        decodedString = Display.DecodeChar(temp[i]) + decodedString;
                     }
-                    l.Add(s);
+                    decodedStrings.Add(decodedString);
                 }
                 byteStorage.RemoveRange(0, 5);
             }
-            
-            while((byteStorage.Count > 0) && (byteStorage[0] != Display.SyncPacket))
+
+            while ((byteStorage.Count > 0) && (byteStorage[0] != Display.SyncPacket))
             {
                 byteStorage.RemoveAt(0);
             }
 
-            l.AddRange(parseStorage());
+            decodedStrings.AddRange(parseStorage());
 
-            return l;
-        }
-
-        public BaseStation(uint port)
-        {
-            devicePort = new SerialPort("COM" + port.ToString(), 9600, Parity.Odd, 8);
-            devicePort.Handshake = Handshake.None;
-            devicePort.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
-            devicePort.Open();
+            return decodedStrings;
         }
 
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e)
         {
-            SerialPort port = (SerialPort) sender;
+            SerialPort port = (SerialPort)sender;
             int bytes = port.BytesToRead;
             byte[] buffer = new byte[bytes];
             port.Read(buffer, 0, bytes);
@@ -75,7 +72,7 @@ namespace SmartEnergy_Relay
                 byteStorage.Add(buffer[i]);
                 if (byteStorage.Count >= 6)
                 {
-                     parsed = parseStorage();
+                    parsed = parseStorage();
                 }
             }
 
@@ -84,8 +81,33 @@ namespace SmartEnergy_Relay
                 for (int i = 0; i < parsed.Count; i++)
                 {
                     display.UpdateValues(parsed[i]);
-                }  
+                }
             }
         }
+
+        public void Initialise()
+        {
+            bool success = false;
+            while (!success)
+            {
+                success = devicePort.SelectPort();
+            }
+            devicePort.Port.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
+
+            device = new Device()
+            {
+                HardwareId = devicePort.HardwareId
+            };
+        }
+
+        public void StartRelay()
+        {
+            devicePort.Port.Open();
+        }
+
+        public BaseStation()
+        {
+        }
+
     }
 }

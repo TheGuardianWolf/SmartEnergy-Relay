@@ -11,13 +11,14 @@ namespace SmartEnergy_Relay
         public const byte SyncPacket = 0xE0;
         public const byte TermPacket = 0xC2;
 
-        public Dictionary<string, List<decimal>> DisplayValues = new Dictionary<string, List<decimal>>()
+        private bool isUpdatingValues = true;
+        public Dictionary<string, Queue<Tuple<decimal, DateTime>>> DisplayValues = new Dictionary<string, Queue<Tuple<decimal, DateTime>>>()
         {
-            { "voltage", new List<decimal>() },
-            { "current", new List<decimal>() },
-            { "power", new List<decimal>() },
-            { "frequency", new List<decimal>() },
-            { "phase", new List<decimal>() }
+            { "voltage", new Queue<Tuple<decimal,DateTime>>() },
+            { "current", new Queue<Tuple<decimal,DateTime>>() },
+            { "power", new Queue<Tuple<decimal,DateTime>>() },
+            { "frequency", new Queue<Tuple<decimal,DateTime>>() },
+            { "phase", new Queue<Tuple<decimal,DateTime>>() }
         };
 
         private Dictionary<string, int> updateConfirms = new Dictionary<string, int>();
@@ -26,7 +27,7 @@ namespace SmartEnergy_Relay
         public void UpdateValues(string value)
         {
             decimal dec;
-            bool isNumber = decimal.TryParse(value, out dec);
+            bool isNumber = decimal.TryParse(value.Replace("-.'", "-0."), out dec);
             bool isValid = false;
             string key = "";
 
@@ -62,24 +63,30 @@ namespace SmartEnergy_Relay
             {
                 isValid = true;
             }
-            
+
             if (isValid)
             {
                 if (updateConfirms.ContainsKey(value))
                 {
                     // Specifically chosen to require 2/3 of display values to agree per update.
                     // Update rate on display is per 400ms, with display refresh per 6ms, therefore 44*6 = 400/3.
-                    if (updateConfirms[value] >= 10) 
+                    if (updateConfirms[value] >= 10)
                     {
                         if (!isNumber)
                         {
+                            if (isUpdatingValues)
+                            {
+                                isUpdatingValues = false;
+                                DisplayValues[Next].Enqueue(null);
+                            }
                             Next = key;
                         }
                         else
                         {
+                            isUpdatingValues = true;
                             if (Next.Length > 0)
                             {
-                                DisplayValues[Next].Add(dec);
+                                DisplayValues[Next].Enqueue(new Tuple<decimal, DateTime>(dec, DateTime.Now));
                             }
                         }
                         updateConfirms.Clear();
@@ -191,6 +198,6 @@ namespace SmartEnergy_Relay
                 default:
                     return "?";
             }
-        } 
+        }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using SmartEnergy_Server.Models;
 using System;
+using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SmartEnergy_Relay
 {
@@ -8,22 +10,91 @@ namespace SmartEnergy_Relay
     // Authunicate via username with server, create user if needed
     // Retrieve hardware ID and data from port.
     // Add device to user
-    // POST data via batch endpoint on server every 5 seconds.
+    // POST data via batch endpoint on server every 60 seconds.
     class Program
     {
         static void Main(string[] args)
         {
-            // Program HEAD
-            //Console.WriteLine("Please enter your username.\n");
-            //string username = Console.ReadLine();
-            //Console.WriteLine("\n");
-            //Console.WriteLine("Please wait for verification from server...\n");
+            BaseStation baseStation = new BaseStation();
 
-            //User userData = Auth.send(username);
+            baseStation.Initialise();
 
-            BaseStation baseStation = new BaseStation(9);
+            API smartEnergyApi = new API();
 
-            Thread.Sleep(new TimeSpan(1, 0, 0));
+            bool asyncSuccess = false;
+
+            while (!asyncSuccess)
+            {
+                Task.Run(async () =>
+                {
+                    asyncSuccess = await smartEnergyApi.Authunicate();
+                }).GetAwaiter().GetResult();
+            }
+
+            Device syncedDevice = null;
+
+            while (syncedDevice == null)
+            {
+                Task.Run(async () =>
+                {
+                    syncedDevice = await smartEnergyApi.SyncDevice(baseStation.Device.HardwareId);
+                }).GetAwaiter().GetResult();
+            }
+
+            baseStation.Device = syncedDevice;
+
+            baseStation.StartRelay();
+
+            while (true)
+            {
+                Console.WriteLine("Entering data submission loop, press Control-C to exit. Data will be transmitted every minute.");
+                Console.WriteLine();
+                Thread.Sleep(new TimeSpan(0, 1, 0));
+                Queue<Data> dataToSubmit = new Queue<Data>();
+                foreach (KeyValuePair<string, Queue<Tuple<decimal, DateTime>>> param in baseStation.Display.DisplayValues)
+                {
+                    if (param.Value.Count > 0)
+                    {
+                        DateTime endRange;
+                        decimal instanceSum;
+                        List<DateTime> instanceTimes = new List<DateTime>();
+                        while (param.Value.Contains(null))
+                        {
+                            endRange = param.Value.Peek().Item2.AddSeconds(8);
+                            instanceSum = 0.0M;
+
+                            while (param.Value.Count > 0)
+                            {
+                                var instance = param.Value.Dequeue();
+                                instanceTimes.Add(instance.Item2);
+                                instanceSum += instance.Item1;
+
+                                if (param.Value.Peek() == null)
+                                {
+                                    break;
+                                }
+                            }
+
+                            if (instanceTimes.Count > 0)
+                            {
+                                dataToSubmit.Enqueue(new Data()
+                                {
+                                    DeviceId = baseStation.Device.Id,
+                                    Time = instanceTimes[instanceTimes.Count / 2],
+                                    Label = param.Key,
+                                    Value = instanceSum / instanceTimes.Count
+                                });
+
+                                instanceTimes.Clear();
+                            }
+                        }
+                    }
+                }
+                Task.Run(async () =>
+                {
+                    await smartEnergyApi.SubmitData(dataToSubmit);
+                }).GetAwaiter().GetResult();
+            }
         }
     }
 }
