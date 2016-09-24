@@ -35,7 +35,7 @@ namespace SmartEnergy_Relay
 
             Console.WriteLine();
             Console.WriteLine("Please enter your username:");
-            user.Username = Console.ReadLine();
+            user.Username = Console.ReadLine().ToLower();
             Console.WriteLine();
 
             // Initialise user and verify with server
@@ -50,8 +50,12 @@ namespace SmartEnergy_Relay
             IRestResponse validationResponse = await ExecuteAsync(validationRequest);
             if ((int)validationResponse.StatusCode == 404)
             {
-                Console.WriteLine("User not found. Register as " + user.Username + "?" + Environment.NewLine);
-                Console.ReadLine();
+                Console.WriteLine("User not found. Register as '" + user.Username + "'? (Y/n)" + Environment.NewLine);
+                if(Console.ReadLine() != "Y")
+                {
+                    return false;
+                }
+                
                 RestRequest registrationRequest = new RestRequest("Users/", Method.POST)
                 {
                     RequestFormat = DataFormat.Json
@@ -75,7 +79,7 @@ namespace SmartEnergy_Relay
             {
                 user = JsonConvert.DeserializeObject<List<User>>(validationResponse.Content)[0];
 
-                Console.WriteLine("Successfully authunicated with API.");
+                Console.WriteLine("Successfully authunicated with API as '" + user.Username.ToString() + "'.");
                 Console.WriteLine();
                 Console.WriteLine(string.Concat(Enumerable.Repeat("=", 20)));
 
@@ -93,9 +97,6 @@ namespace SmartEnergy_Relay
         {
             Console.WriteLine(string.Concat(Enumerable.Repeat("=", 20)));
 
-            user.Username = Console.ReadLine();
-            Console.WriteLine();
-
             RestRequest getDeviceRequest = new RestRequest("Devices/User/" + user.Id, Method.GET)
             {
                 RequestFormat = DataFormat.Json
@@ -104,12 +105,10 @@ namespace SmartEnergy_Relay
             Console.WriteLine("Connecting to API...");
             Console.WriteLine();
 
-            Task<IRestResponse> getDeviceTask = ExecuteAsync(getDeviceRequest);
-
             Console.WriteLine("Getting a list of your registered devices...");
             Console.WriteLine();
 
-            IRestResponse getDeviceResponse = await getDeviceTask;
+            IRestResponse getDeviceResponse = await ExecuteAsync(getDeviceRequest);
 
             if (((int)getDeviceResponse.StatusCode) / 100 == 2)
             {
@@ -125,10 +124,13 @@ namespace SmartEnergy_Relay
                     }
                 }
 
-                Device syncedDevice = new Device();
+                Device syncedDevice = new Device()
+                {
+                    UserId = user.Id,
+                    HardwareId = hardwareId
+                };
                 Console.WriteLine("Device is not current registered. Attempting to register, please provide an alias:");
                 string alias = Console.ReadLine();
-                syncedDevice.UserId = user.Id;
                 syncedDevice.Alias = alias;
                 RestRequest registerDeviceRequest = new RestRequest("Devices/", Method.POST);
                 registerDeviceRequest.AddBody(syncedDevice);

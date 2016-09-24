@@ -33,12 +33,14 @@ namespace SmartEnergy_Relay
 
             Device syncedDevice = null;
 
-            while (syncedDevice == null)
+            Task.Run(async () =>
             {
-                Task.Run(async () =>
-                {
-                    syncedDevice = await smartEnergyApi.SyncDevice(baseStation.Device.HardwareId);
-                }).GetAwaiter().GetResult();
+                syncedDevice = await smartEnergyApi.SyncDevice(baseStation.GetHardwareId());
+            }).GetAwaiter().GetResult();
+
+            if (syncedDevice == null)
+            {
+                throw new InvalidOperationException("Device sync failed, restart application.");
             }
 
             baseStation.Device = syncedDevice;

@@ -9,8 +9,14 @@ namespace SmartEnergy_Relay
     {
         private DevicePort devicePort = new DevicePort();
 
-        private Device device;
+        private Device device = new Device();
+
         public Device Device { get; set; }
+
+        public string GetHardwareId()
+        {
+            return device.HardwareId;
+        }
 
         private Display display = new Display();
         public Display Display { get; set; }
@@ -92,12 +98,10 @@ namespace SmartEnergy_Relay
             {
                 success = devicePort.SelectPort();
             }
-            devicePort.Port.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
 
-            device = new Device()
-            {
-                HardwareId = devicePort.HardwareId
-            };
+            devicePort.AddDataRecievedEventHandler(new SerialDataReceivedEventHandler(DataReceivedHandler));
+
+            device.HardwareId = devicePort.HardwareId;
         }
 
         public void StartRelay()

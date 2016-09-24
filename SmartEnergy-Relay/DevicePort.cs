@@ -14,7 +14,7 @@ namespace SmartEnergy_Relay
 
         public string HardwareId { get; }
 
-        public SerialPort port;
+        private SerialPort port;
 
         public SerialPort Port { get; }
 
@@ -56,7 +56,7 @@ namespace SmartEnergy_Relay
                 if (match.Success)
                 {
                     selectedCOMPort = match.Groups[1].ToString();
-                    hardwareId = COMDevices[option]["HardwareID"].ToString();
+                    hardwareId = ((string[]) COMDevices[option]["HardwareID"])[0];
                 }
             }
             Console.WriteLine();
@@ -83,6 +83,11 @@ namespace SmartEnergy_Relay
                 return true;
             }
             return false;
+        }
+
+        public void AddDataRecievedEventHandler(SerialDataReceivedEventHandler handle)
+        {
+            port.DataReceived += handle;
         }
 
         public DevicePort()
