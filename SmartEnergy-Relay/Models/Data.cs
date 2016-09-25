@@ -1,8 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+using System.ComponentModel.DataAnnotations;
 
 namespace SmartEnergy_Server.Models
 {
@@ -10,12 +8,17 @@ namespace SmartEnergy_Server.Models
     {
         public int Id { get; set; }
 
+        [Required]
         public int DeviceId { get; set; }
 
+        [Required]
+        [DataType(DataType.Date)]
         public DateTime Time { get; set; }
 
+        [Required]
         public string Label { get; set; }
 
+        [Required]
         public decimal Value { get; set; }
 
         [JsonIgnore]
