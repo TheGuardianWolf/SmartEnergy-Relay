@@ -8,10 +8,15 @@ namespace SmartEnergy_Relay
 {
     public class Display
     {
+        // Set the line start and line terminator packets.
+        // Line start is not needed but is used as the display needs the sync packet to function.
         public const byte SyncPacket = 0xE0;
         public const byte TermPacket = 0xC2;
 
+        // Flag for if numbers are updating.
         private bool isUpdatingValues = true;
+
+        // Storage for display parameter values.
         public Dictionary<string, Queue<Tuple<decimal, DateTime>>> DisplayValues = new Dictionary<string, Queue<Tuple<decimal, DateTime>>>()
         {
             { "voltage", new Queue<Tuple<decimal,DateTime>>() },
@@ -21,18 +26,25 @@ namespace SmartEnergy_Relay
             { "phase", new Queue<Tuple<decimal,DateTime>>() }
         };
 
+        // Storage for confirms
         private Dictionary<string, int> updateConfirms = new Dictionary<string, int>();
+        // Next updated parameter.
         private string Next = "";
 
+        // Function to update the parameter values from display input.
+        // Accepts a string input value to be decoded.
         public void UpdateValues(string value)
         {
             decimal dec;
+            // Is it a number? Check also for the negative shorthand used and recover the leading 0.
             bool isNumber = decimal.TryParse(value.Replace("-.'", "-0."), out dec);
             bool isValid = false;
             string key = "";
 
             if (!isNumber)
             {
+                // If it's not a number, it is a display parameter.
+                // Convert this to proper english.
                 switch (value)
                 {
                     case "Volt":
@@ -61,6 +73,7 @@ namespace SmartEnergy_Relay
             }
             else
             {
+                // If it's not a parameter, there's no way to check numerical values are valid. So default to true.
                 isValid = true;
             }
 
@@ -70,7 +83,7 @@ namespace SmartEnergy_Relay
                 {
                     // Specifically chosen to require 2/3 of display values to agree per update.
                     // Update rate on display is per 200ms, with display refresh per 7ms.
-                    if (updateConfirms[value] >= 20)
+                    if (updateConfirms[value] >= 1)
                     {
                         if (!isNumber)
                         {
