@@ -7,27 +7,16 @@ using System.Text.RegularExpressions;
 
 namespace SmartEnergy_Relay
 {
-    class DevicePort : IDisposable
+    class DevicePort
     {
         private string selectedCOMPort = "";
         private string hardwareId = "";
 
-        public string HardwareId
-        {
-            get
-            {
-                return hardwareId;
-            }
-        }
+        public string HardwareId { get; }
 
         private SerialPort port;
 
-        public SerialPort Port {
-            get
-            {
-                return port;
-            }
-        }
+        public SerialPort Port { get; }
 
         private ManagementObject[] getCOMDevices()
         {
@@ -100,13 +89,9 @@ namespace SmartEnergy_Relay
         public bool SelectPort()
         {
             userSelectPort();
-            if (port != null)
-            {
-                port.Dispose();
-            }
             if (selectedCOMPort.Length != 0)
             {
-                port = new SerialPort(selectedCOMPort.ToString(), 9600, Parity.Odd, 8);
+                port = new SerialPort("COM" + selectedCOMPort.ToString(), 9600, Parity.Odd, 8);
                 port.Handshake = Handshake.None;
                 return true;
             }
@@ -121,31 +106,6 @@ namespace SmartEnergy_Relay
         public DevicePort()
         {
 
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        ~DevicePort()
-        {
-            // Finalizer calls Dispose(false)
-            Dispose(false);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                // free managed resources
-                if (port != null)
-                {
-                    port.Dispose();
-                    port = null;
-                }
-            }
         }
     }
 }

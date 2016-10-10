@@ -15,101 +15,87 @@ namespace SmartEnergy_Relay
     {
         static void Main(string[] args)
         {
-            using (BaseStation baseStation = new BaseStation())
+            BaseStation baseStation = new BaseStation();
+
+            baseStation.Initialise();
+
+            API smartEnergyApi = new API();
+
+            bool asyncSuccess = false;
+
+            while (!asyncSuccess)
             {
-
-                baseStation.Initialise();
-
-                API smartEnergyApi = new API();
-
-                bool asyncSuccess = false;
-
-                while (!asyncSuccess)
-                {
-                    Task.Run(async () =>
-                    {
-                        asyncSuccess = await smartEnergyApi.Authunicate();
-                    }).GetAwaiter().GetResult();
-                }
-
-                Device syncedDevice = null;
-
                 Task.Run(async () =>
                 {
-                    syncedDevice = await smartEnergyApi.SyncDevice(baseStation.Device.HardwareId);
+                    asyncSuccess = await smartEnergyApi.Authunicate();
                 }).GetAwaiter().GetResult();
+            }
 
-                if (syncedDevice == null)
-                {
-                    throw new InvalidOperationException("Device sync failed, restart application.");
-                }
+            Device syncedDevice = null;
 
-                baseStation.Device = syncedDevice;
+            Task.Run(async () =>
+            {
+                syncedDevice = await smartEnergyApi.SyncDevice(baseStation.GetHardwareId());
+            }).GetAwaiter().GetResult();
 
-                baseStation.StartRelay();
+            if (syncedDevice == null)
+            {
+                throw new InvalidOperationException("Device sync failed, restart application.");
+            }
 
+            baseStation.Device = syncedDevice;
+
+            baseStation.StartRelay();
+
+            while (true)
+            {
                 Console.WriteLine("Entering data submission loop, press Control-C to exit. Data will be transmitted every minute.");
                 Console.WriteLine();
-                while (true)
+                Thread.Sleep(new TimeSpan(0, 1, 0));
+                Queue<Data> dataToSubmit = new Queue<Data>();
+                foreach (KeyValuePair<string, Queue<Tuple<decimal, DateTime>>> param in baseStation.Display.DisplayValues)
                 {
-                    Thread.Sleep(new TimeSpan(0, 0, 60));
-                    Queue<Data> dataToSubmit = new Queue<Data>();
-                    foreach (KeyValuePair<string, Queue<Tuple<decimal, DateTime>>> param in baseStation.Display.DisplayValues)
+                    if (param.Value.Count > 0)
                     {
-                        if (param.Value.Count > 0)
+                        DateTime endRange;
+                        decimal instanceSum;
+                        List<DateTime> instanceTimes = new List<DateTime>();
+                        while (param.Value.Contains(null))
                         {
-                            DateTime endRange;
-                            decimal instanceSum;
-                            List<DateTime> instanceTimes = new List<DateTime>();
-                            while ((param.Value.Count > 0) && (param.Value.Contains(null)))
-                            {
-                                // Remove any invalid nulls, this should not run if data is formatted correctly.
-                                while ((param.Value.Count > 0) && (param.Value.Peek() == null))
-                                {
-                                    param.Value.Dequeue();
-                                }
+                            endRange = param.Value.Peek().Item2.AddSeconds(8);
+                            instanceSum = 0.0M;
 
-                                // Then recheck count
-                                if (param.Value.Count == 0)
+                            while (param.Value.Count > 0)
+                            {
+                                var instance = param.Value.Dequeue();
+                                instanceTimes.Add(instance.Item2);
+                                instanceSum += instance.Item1;
+
+                                if (param.Value.Peek() == null)
                                 {
                                     break;
                                 }
+                            }
 
-                                endRange = param.Value.Peek().Item2.AddSeconds(8);
-                                instanceSum = 0.0M;
-
-                                while ((param.Value.Count > 0) && (param.Value.Peek() != null))
+                            if (instanceTimes.Count > 0)
+                            {
+                                dataToSubmit.Enqueue(new Data()
                                 {
-                                    var instance = param.Value.Dequeue();
-                                    instanceTimes.Add(instance.Item2);
-                                    instanceSum += instance.Item1;
-                                }
+                                    DeviceId = baseStation.Device.Id,
+                                    Time = instanceTimes[instanceTimes.Count / 2],
+                                    Label = param.Key,
+                                    Value = instanceSum / instanceTimes.Count
+                                });
 
-                                if ((param.Value.Count > 0) && (param.Value.Peek() == null))
-                                {
-                                    param.Value.Dequeue();
-                                }
-
-                                if (instanceTimes.Count > 0)
-                                {
-                                    dataToSubmit.Enqueue(new Data()
-                                    {
-                                        DeviceId = baseStation.Device.Id,
-                                        Time = instanceTimes[instanceTimes.Count / 2],
-                                        Label = param.Key,
-                                        Value = instanceSum / instanceTimes.Count
-                                    });
-
-                                    instanceTimes.Clear();
-                                }
+                                instanceTimes.Clear();
                             }
                         }
                     }
-                    Task.Run(async () =>
-                    {
-                        await smartEnergyApi.SubmitData(dataToSubmit);
-                    }).GetAwaiter().GetResult();
                 }
+                Task.Run(async () =>
+                {
+                    await smartEnergyApi.SubmitData(dataToSubmit);
+                }).GetAwaiter().GetResult();
             }
         }
     }

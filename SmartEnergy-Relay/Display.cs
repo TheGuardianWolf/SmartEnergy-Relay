@@ -87,14 +87,10 @@ namespace SmartEnergy_Relay
                     {
                         if (!isNumber)
                         {
-                            if ((isUpdatingValues) && (Next.Length > 0) && (DisplayValues[Next].Count > 0))
+                            if (isUpdatingValues)
                             {
                                 isUpdatingValues = false;
                                 DisplayValues[Next].Enqueue(null);
-                            }
-                            else if (isUpdatingValues)
-                            {
-                                isUpdatingValues = false;
                             }
                             Next = key;
                         }

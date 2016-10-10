@@ -5,32 +5,21 @@ using System.IO.Ports;
 
 namespace SmartEnergy_Relay
 {
-    class BaseStation : IDisposable 
+    class BaseStation
     {
         private DevicePort devicePort = new DevicePort();
 
         private Device device = new Device();
 
-        public Device Device
+        public Device Device { get; set; }
+
+        public string GetHardwareId()
         {
-            get
-            {
-                return device;
-            }
-            set
-            {
-                device = value;
-            }
+            return device.HardwareId;
         }
 
         private Display display = new Display();
-        public Display Display
-        {
-            get
-            {
-                return display;
-            }
-        }
+        public Display Display { get; set; }
 
         private List<byte> byteStorage = new List<byte>();
 
@@ -79,27 +68,25 @@ namespace SmartEnergy_Relay
 
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e)
         {
-            using (SerialPort port = (SerialPort) sender)
+            SerialPort port = (SerialPort)sender;
+            int bytes = port.BytesToRead;
+            byte[] buffer = new byte[bytes];
+            port.Read(buffer, 0, bytes);
+            List<string> parsed = new List<string>();
+            for (int i = 0; i < bytes; i++)
             {
-                int bytes = port.BytesToRead;
-                byte[] buffer = new byte[bytes];
-                port.Read(buffer, 0, bytes);
-                List<string> parsed = new List<string>();
-                for (int i = 0; i < bytes; i++)
+                byteStorage.Add(buffer[i]);
+                if (byteStorage.Count >= 6)
                 {
-                    byteStorage.Add(buffer[i]);
-                    if (byteStorage.Count >= 6)
-                    {
-                        parsed = parseStorage();
-                    }
+                    parsed = parseStorage();
                 }
+            }
 
-                if (parsed.Count > 0)
+            if (parsed.Count > 0)
+            {
+                for (int i = 0; i < parsed.Count; i++)
                 {
-                    for (int i = 0; i < parsed.Count; i++)
-                    {
-                        display.UpdateValues(parsed[i]);
-                    }
+                    display.UpdateValues(parsed[i]);
                 }
             }
         }
@@ -124,25 +111,6 @@ namespace SmartEnergy_Relay
 
         public BaseStation()
         {
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                // free managed resources
-                if (devicePort != null)
-                {
-                    devicePort.Dispose();
-                    devicePort = null;
-                }
-            }
         }
 
     }

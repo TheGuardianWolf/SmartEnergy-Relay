@@ -18,11 +18,8 @@ namespace SmartEnergy_Relay
 
         private RestClient client = new RestClient(apiUrl);
 
-        private HttpClient batchClient = new HttpClient();
-
         private Task<IRestResponse> ExecuteAsync(RestRequest request)
         {
-            request.JsonSerializer = new RestSharp.Newtonsoft.Json.NewtonsoftJsonSerializer();
             var taskCompletionSource = new TaskCompletionSource<IRestResponse>();
             client.ExecuteAsync(request, (response) => taskCompletionSource.SetResult(response));
             return taskCompletionSource.Task;
@@ -38,7 +35,7 @@ namespace SmartEnergy_Relay
 
             Console.WriteLine();
             Console.WriteLine("Please enter your username:");
-            user.Username = Console.ReadLine();
+            user.Username = Console.ReadLine().ToLower();
             Console.WriteLine();
 
             // Initialise user and verify with server
@@ -63,7 +60,7 @@ namespace SmartEnergy_Relay
                 {
                     RequestFormat = DataFormat.Json
                 };
-                registrationRequest.AddJsonBody(user);
+                registrationRequest.AddBody(user);
                 IRestResponse registrationResponse = await ExecuteAsync(registrationRequest);
                 if (((int)registrationResponse.StatusCode) / 100 == 2)
                 {
@@ -136,7 +133,7 @@ namespace SmartEnergy_Relay
                 string alias = Console.ReadLine();
                 syncedDevice.Alias = alias;
                 RestRequest registerDeviceRequest = new RestRequest("Devices/", Method.POST);
-                registerDeviceRequest.AddJsonBody(syncedDevice);
+                registerDeviceRequest.AddBody(syncedDevice);
                 IRestResponse registerDeviceResponse = await ExecuteAsync(registerDeviceRequest);
 
                 if (((int)registerDeviceResponse.StatusCode) / 100 == 2)
@@ -178,6 +175,8 @@ namespace SmartEnergy_Relay
                     )
                 );
             }
+
+            HttpClient batchClient = new HttpClient();
 
             await batchClient.SendAsync(
                 new HttpRequestMessage(HttpMethod.Post, apiUrl + "Batch/")
