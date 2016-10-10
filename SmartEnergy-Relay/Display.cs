@@ -69,8 +69,8 @@ namespace SmartEnergy_Relay
                 if (updateConfirms.ContainsKey(value))
                 {
                     // Specifically chosen to require 2/3 of display values to agree per update.
-                    // Update rate on display is per 400ms, with display refresh per 6ms, therefore 44*6 = 400/3.
-                    if (updateConfirms[value] >= 10)
+                    // Update rate on display is per 200ms, with display refresh per 7ms.
+                    if (updateConfirms[value] >= 20)
                     {
                         if (!isNumber)
                         {

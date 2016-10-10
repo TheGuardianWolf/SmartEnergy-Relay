@@ -36,6 +36,10 @@ namespace SmartEnergy_Relay
                 "SELECT * FROM Win32_PnPEntity WHERE ClassGuid=\"{4d36e978-e325-11ce-bfc1-08002be10318}\""
             );
             ManagementObject[] COMDevices = new ManagementObject[searcher.Get().Count];
+            if (COMDevices.Length == 0)
+            {
+                return COMDevices;
+            }
             searcher.Get().CopyTo(COMDevices, 0);
             return COMDevices;
         }
@@ -46,12 +50,21 @@ namespace SmartEnergy_Relay
             int option;
             Regex extractPort = new Regex(@"\((COM\d)\)");
 
-            ManagementObject[] COMDevices = getCOMDevices();
-
             Console.WriteLine(string.Concat(Enumerable.Repeat("=", 50)));
             Console.WriteLine();
+            Console.WriteLine("Scanning for COM devices.");
+            Console.WriteLine();
+
+            ManagementObject[] COMDevices = null;
+
+            while ((COMDevices == null) || (COMDevices.Length == 0))
+            {
+                COMDevices = getCOMDevices();
+            }
+
             Console.WriteLine("Available devices:");
             Console.WriteLine();
+
             for (int i = 0; i < COMDevices.Length; i++)
             {
                 Console.WriteLine(i.ToString() + ". " + COMDevices[i]["Name"].ToString());
