@@ -6,17 +6,30 @@ using System.Threading.Tasks;
 
 namespace SmartEnergy_Relay
 {
+    /// <summary>
+    /// Abstract display object representing the display on the base station device.
+    /// </summary>
     public class Display
     {
         // Set the line start and line terminator packets.
         // Line start is not needed but is used as the display needs the sync packet to function.
+        /// <summary>
+        /// Line start byte.
+        /// </summary>
         public const byte SyncPacket = 0xE0;
+        /// <summary>
+        /// Line end byte.
+        /// </summary>
         public const byte TermPacket = 0xC2;
 
-        // Flag for if numbers are updating.
+        /// <summary>
+        /// Flag for if numbers are updating.
+        /// </summary>
         private bool isUpdatingValues = true;
 
-        // Storage for display parameter values.
+        /// <summary>
+        /// Storage for display parameter values.
+        /// </summary>
         public Dictionary<string, Queue<Tuple<decimal, DateTime>>> DisplayValues = new Dictionary<string, Queue<Tuple<decimal, DateTime>>>()
         {
             { "voltage", new Queue<Tuple<decimal,DateTime>>() },
@@ -26,13 +39,20 @@ namespace SmartEnergy_Relay
             { "phase", new Queue<Tuple<decimal,DateTime>>() }
         };
 
-        // Storage for confirms
+        /// <summary>
+        /// Storage for confirms
+        /// </summary>
         private Dictionary<string, int> updateConfirms = new Dictionary<string, int>();
-        // Next updated parameter.
+
+        /// <summary>
+        /// // Next updated parameter.
+        /// </summary>
         private string Next = "";
 
-        // Function to update the parameter values from display input.
-        // Accepts a string input value to be decoded.
+        /// <summary>
+        /// Function to update the parameter values from display input.
+        /// </summary>
+        /// <param name="value">Accepts a string input value to be decoded.</param>
         public void UpdateValues(string value)
         {
             decimal dec;
@@ -81,9 +101,9 @@ namespace SmartEnergy_Relay
             {
                 if (updateConfirms.ContainsKey(value))
                 {
-                    // Specifically chosen to require 2/3 of display values to agree per update.
-                    // Update rate on display is per 200ms, with display refresh per 7ms.
-                    if (updateConfirms[value] >= 1)
+                    // Updates need confirmation otherwise incoming values could easily be garbage caused by noise or 
+					// other effects over transmission. Should be getting 10 values per parameter value display.
+                    if (updateConfirms[value] >= 3)
                     {
                         if (!isNumber)
                         {
@@ -115,7 +135,9 @@ namespace SmartEnergy_Relay
                 }
                 else
                 {
-                    if (updateConfirms.Count > 3)
+					// If transmission is constantly sending garbage, we don't want to keep storing
+					// this, so set a limit on the amount of different values we get in confirms.
+                    if (updateConfirms.Count > 20)
                     {
                         updateConfirms.Clear();
                     }
@@ -124,12 +146,19 @@ namespace SmartEnergy_Relay
             }
         }
 
+        /// <summary>
+        /// Characters are decoded using a lookup table.
+        /// </summary>
+        /// <param name="character">Character to be decoded.</param>
+        /// <returns></returns>
         static public string DecodeChar(byte character)
         {
+			// If the character is bigger than 0x7F, this means that the decimal point is active.
+			// Subtract by 0x80 and see what we have left. This is the remainder.
             if (character > 0x7F)
             {
                 character -= 0x80;
-                return DecodeChar(character) + ".";
+                return DecodeChar(character) + "."; // Add decimal in return, use recursion to decode the remainder.
             }
 
             switch (character)
